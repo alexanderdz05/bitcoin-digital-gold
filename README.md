@@ -17,7 +17,7 @@ Specifically:
 
 ## Thesis
 
-Bitcoin is not yet digital gold. While Bitcoin shares gold's scarcity and has experienced growing institutional adoption, its historical behavior more closely resembles that of a high-volatility risk asset than a traditional store of value or inflation hedge. Therefore, Bitcoin's role in a portfolio is better justified through diversification and return potential than through its ability to provide the same protections traditionally associated with gold.
+Bitcoin is not currently digital gold. Although Bitcoin possesses a scarce supply and has benefited from growing institutional adoption, the historical evidence suggests that it behaves more like a speculative risk asset than a traditional store of value. Analysis of inflation regimes, rolling correlations, and risk-on/risk-off market environments shows that Bitcoin has not consistently acted as an inflation hedge, has become increasingly correlated with equity markets since 2020, and tends to decline alongside stocks during periods of market stress. While Bitcoin offers strong long-term returns and potential diversification benefits, the data suggests its role in a portfolio is better justified as a high-risk diversifier rather than a direct substitute for gold.
 
 ## Data Sources
 ### Market Data
