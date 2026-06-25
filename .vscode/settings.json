@@ -1,0 +1,15 @@
+{
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "customFileOrder.rules": {
+        "/Users/alexanderdominguez/Desktop/Deutsche Bank Intern Project/app": {
+            "order": [
+                "main.py",
+                "overview.py",
+                "digital_gold_tests.py",
+                "stress_period_analysis.py",
+                "portfolio_simulator.py"
+            ],
+            "type": "manual"
+        }
+    }
+}
