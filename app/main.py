@@ -19,7 +19,7 @@ page = st.sidebar.radio(
     "Navigation",
     [
         "Overview",
-        "Digital Gold Tests",
+        "Bitcoin's Portfolio Role",
         "Stress Period Analysis",
         "Portfolio Simulator"
     ]
@@ -27,7 +27,7 @@ page = st.sidebar.radio(
 
 if page == "Overview":
     show_overview()
-elif page == "Digital Gold Tests":
+elif page == "Bitcoin's Portfolio Role":
     show_digital_gold_tests()
 elif page == "Stress Period Analysis":
     show_stress_period_analysis()
