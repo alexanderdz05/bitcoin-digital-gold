@@ -1,6 +1,6 @@
 import streamlit as st 
 from overview import show_overview
-from digital_gold_tests import show_digital_gold_tests
+from bitcoin_portfolio_role import show_bitcoin_portfolio_role
 from stress_period_analysis import show_stress_period_analysis
 from portfolio_simulator import show_portfolio_simulator
 
@@ -28,7 +28,7 @@ page = st.sidebar.radio(
 if page == "Overview":
     show_overview()
 elif page == "Bitcoin's Portfolio Role":
-    show_digital_gold_tests()
+    show_bitcoin_portfolio_role()
 elif page == "Stress Period Analysis":
     show_stress_period_analysis()
 elif page == "Portfolio Simulator":

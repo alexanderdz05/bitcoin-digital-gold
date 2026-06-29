@@ -78,7 +78,7 @@ def compute_verdict(ret, prices_f, vix_threshold):
         "risk_on_days": len(risk_on),
     }
 
-def show_digital_gold_tests():
+def show_bitcoin_portfolio_role():
     # Title and Desc
     st.title("₿ Bitcoin's Portfolio Role")
     st.markdown("### If Bitcoin is not yet digital gold, what role does it actually play in a portfolio?")
@@ -129,7 +129,7 @@ def show_digital_gold_tests():
     st.info(
         f"{v['color']} **Portfolio Role: {v['role']}**\n\n"
         f"{v['summary']}\n\n"
-        f"BTC-SPY Correlation: **{v['btc_spy_corr']:.3f}** &nbsp;|nbsp; "
+        f"BTC-SPY Correlation: **{v['btc_spy_corr']:.3f}** &nbsp;|&nbsp; "
         f"BTC-Gold Correlation: **{v['btc_gold_corr']:.3f}** &nbsp;|&nbsp; "
         f"Stress Days (VIX>{vix_threshold}): **{v['risk_off_days']}** of {len(ret_f)} trading days"
     )

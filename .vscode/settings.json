@@ -5,7 +5,7 @@
             "order": [
                 "main.py",
                 "overview.py",
-                "digital_gold_tests.py",
+                "bitcoin_portfolio_role.py",
                 "stress_period_analysis.py",
                 "portfolio_simulator.py"
             ],
