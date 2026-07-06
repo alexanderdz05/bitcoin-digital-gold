@@ -5,9 +5,14 @@
             "order": [
                 "main.py",
                 "overview.py",
-                "bitcoin_portfolio_role.py",
+                "test_1_gold_like_behavior.py",
                 "stress_period_analysis.py",
-                "portfolio_simulator.py"
+                "portfolio_simulator.py",
+                "test_2_inflation_hedge.py",
+                "test_3_risk_asset_behavior.py",
+                "test_4_stress_period_behavior.py",
+                "test_5_institutionalization.py",
+                "utils.py"
             ],
             "type": "manual"
         }

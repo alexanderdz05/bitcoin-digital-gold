@@ -1,10 +1,12 @@
-import streamlit as st 
-from overview import show_overview
-from bitcoin_portfolio_role import show_bitcoin_portfolio_role
-from stress_period_analysis import show_stress_period_analysis
-from portfolio_simulator import show_portfolio_simulator
+import streamlit as st
 
-# Page Config
+from overview import show_overview
+from test_1_gold_like_behavior import show_test1
+from test_2_inflation_hedge import show_test2
+from test_3_risk_asset_behavior import show_test3
+from test_4_stress_period_behavior import show_test4
+from test_5_institutionalization import show_test5
+from portfolio_simulator import show_portfolio_simulator
 
 st.set_page_config(
     page_title="Bitcoin as Digital Gold",
@@ -19,19 +21,26 @@ page = st.sidebar.radio(
     "Navigation",
     [
         "Overview",
-        "Bitcoin's Portfolio Role",
-        "Stress Period Analysis",
-        "Portfolio Simulator"
+        "Test 1 - Gold-like Behavior",
+        "Test 2 - Inflation Hedge",
+        "Test 3 - Risk Asset Behavior",
+        "Test 4 - Stress Period Behavior",
+        "Test 5 - Institutionalization",
+        "Test 6 - Portfolio Role"
     ]
 )
 
 if page == "Overview":
     show_overview()
-elif page == "Bitcoin's Portfolio Role":
-    show_bitcoin_portfolio_role()
-elif page == "Stress Period Analysis":
-    show_stress_period_analysis()
-elif page == "Portfolio Simulator":
+elif page == "Test 1 - Gold-like Behavior":
+    show_test1()
+elif page == "Test 2 - Inflation Hedge":
+    show_test2()
+elif page == "Test 3 - Risk Asset Behavior":
+    show_test3()
+elif page == "Test 4 - Stress Period Behavior":
+    show_test4()
+elif page == "Test 5 - Institutionalization":
+    show_test5()
+elif page == "Test 6 - Portfolio Role":
     show_portfolio_simulator()
-else:
-    st.write("Error: Page not found")
