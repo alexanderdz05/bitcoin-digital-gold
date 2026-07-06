@@ -6,7 +6,6 @@
                 "main.py",
                 "overview.py",
                 "test_1_gold_like_behavior.py",
-                "stress_period_analysis.py",
                 "portfolio_simulator.py",
                 "test_2_inflation_hedge.py",
                 "test_3_risk_asset_behavior.py",
