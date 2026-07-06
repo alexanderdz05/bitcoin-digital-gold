@@ -14,9 +14,11 @@ from utils import (
 )
 
 def show_test1():
+    # Title and Header
     st.title("Test 1 — Gold-like Behavior")
     st.markdown("### Does Bitcoin actually behave like gold?")
 
+    # Performance Metrics
     prices, returns = load_asset_prices()
 
     st.sidebar.markdown("---")
@@ -68,6 +70,7 @@ def show_test1():
 
     st.divider()
 
+    # Correlation Matrix
     st.subheader("Correlation Matrix")
 
     corr = returns_f.corr()
@@ -96,6 +99,7 @@ def show_test1():
 
     st.divider()
 
+    # Historical Drawdowns
     st.subheader("Historical Drawdowns")
 
     drawdowns = pd.DataFrame(index=prices_f.index)
@@ -131,6 +135,7 @@ def show_test1():
 
     st.divider()
 
+    # Rolling 1-Year Correlation
     st.subheader("Rolling 1-Year Correlation")
 
     roll = 252

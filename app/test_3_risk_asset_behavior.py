@@ -12,9 +12,11 @@ from utils import (
 )
 
 def show_test3():
+    # Title and Header
     st.title("Test 3 — Risk Asset Behavior")
     st.markdown("### Does Bitcoin behave like a high-beta risk asset?")
 
+    # Risk on vs Risk off Analysis
     prices, returns = load_asset_prices()
 
     if "VIX" not in prices.columns:
@@ -101,6 +103,7 @@ def show_test3():
 
     st.divider()
 
+    # Annualized Returns by Regime
     if len(risk_on) > 10 and len(risk_off) > 10:
         fig = go.Figure()
 
@@ -136,6 +139,7 @@ def show_test3():
 
         st.plotly_chart(fig, use_container_width=True)
 
+    # Risk Asset Correlation Check
     btc_spy_corr = returns_f[["BTC", "SPY"]].corr().loc["BTC", "SPY"]
     btc_gold_corr = returns_f[["BTC", "Gold"]].corr().loc["BTC", "Gold"]
 

@@ -6,9 +6,11 @@ import plotly.graph_objects as go
 from utils import load_asset_prices, load_cpi, CORE_ASSETS, ASSET_COLORS
 
 def show_test2():
+    # Title and Header
     st.title("Test 2 — Inflation Hedge Behavior")
     st.markdown("### Does Bitcoin protect purchasing power when inflation rises?")
 
+    # Inflation Correlations
     prices, returns = load_asset_prices()
     cpi = load_cpi()
 
@@ -97,6 +99,7 @@ def show_test2():
 
     st.divider()
 
+    # Annualized Returns by Inflation Regime
     st.subheader("Annualized Returns by Inflation Regime")
 
     regime_monthly_avg = regime_data.groupby("Regime")[CORE_ASSETS].mean()
@@ -151,6 +154,7 @@ def show_test2():
 
     st.divider()
 
+    # Bitcoin Monthly Returns vs YoY Inflation
     st.subheader("Bitcoin Monthly Returns vs YoY Inflation")
 
     scatter_df = regime_data[["BTC", "Inflation YoY", "Regime"]].copy()

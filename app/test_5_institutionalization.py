@@ -13,9 +13,11 @@ from utils import (
 )
 
 def show_test5():
+    # Title and Header
     st.title("Test 5 — Post-2020 Institutionalization")
     st.markdown("### Did institutional adoption make Bitcoin more like gold?")
 
+    # Pre vs Post 2020 Summary
     prices, returns = load_asset_prices()
 
     st.info(
@@ -86,6 +88,7 @@ def show_test5():
 
     st.divider()
 
+    # Rolling Correlation Around Institutionalization
     st.subheader("Rolling Correlation Around Institutionalization")
 
     roll = 252

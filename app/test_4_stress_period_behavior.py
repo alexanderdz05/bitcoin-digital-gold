@@ -15,9 +15,11 @@ from utils import (
 )
 
 def show_test4():
+    # Title and Header
     st.title("Test 4 — Stress-Period Behavior")
     st.markdown("### Does Bitcoin protect capital during real market crises?")
 
+    # Sidebar
     prices, returns = load_asset_prices()
 
     st.sidebar.markdown("---")
@@ -81,6 +83,7 @@ def show_test4():
 
     period_order = list(active_periods.keys())
 
+    # Cumulative Returns During Stress Periods
     st.subheader("Cumulative Returns During Stress Periods")
 
     fig = go.Figure()
@@ -115,6 +118,7 @@ def show_test4():
 
     st.plotly_chart(fig, use_container_width=True)
 
+    # Stress Period Detail
     st.subheader("Stress Period Detail")
 
     def pivot_metric(metric):
@@ -143,6 +147,7 @@ def show_test4():
 
     st.divider()
 
+    # Normalized Price Chart
     st.subheader("Normalized Price Chart")
 
     drill_period = st.selectbox(
