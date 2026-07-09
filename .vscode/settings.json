@@ -11,7 +11,9 @@
                 "test_3_risk_asset_behavior.py",
                 "test_4_stress_period_behavior.py",
                 "test_5_institutionalization.py",
-                "utils.py"
+                "utils.py",
+                "monte_carlo.cpp",
+                "setup.py"
             ],
             "type": "manual"
         }
