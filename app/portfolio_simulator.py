@@ -5,6 +5,10 @@ import plotly.graph_objects as go
 import yfinance as yf
 import time
 import math
+import os
+
+# Absolute path to data/ — works regardless of where streamlit is launched from
+_DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 
 try:
     import monte_carlo as _mc_cpp
@@ -38,13 +42,8 @@ ASSET_COLORS = {
 @st.cache_data
 def load_csv_universe() -> pd.DataFrame:
     """Mode 1 uses the pre-fetched CSV so the app never blocks on a network call."""
-    prices = pd.read_csv("data/asset_prices.csv", index_col=0, parse_dates=True)
+    prices = pd.read_csv(os.path.join(_DATA_DIR, "asset_prices.csv"), index_col=0, parse_dates=True)
     return prices[["BTC", "Gold", "SPY", "QQQ", "TLT"]]
-
-@st.cache_data
-def load_csv_full() -> pd.DataFrame:
-    """Full CSV including VIX - used for regime detection in Mode 1."""
-    return pd.read_csv("data/asset_prices.csv", index_col=0, parse_dates=True)
 
 @st.cache_data(ttl=3600)
 def load_yfinance(tickers: tuple, period: str="5y") -> pd.DataFrame:
@@ -149,7 +148,7 @@ def sample_weights(
     After sampling, we clip BTC to [btc_min, btc_max] then re-normalize
     the remaining assets proportionally so weights still sum to 1.
     """
-    rng = np.random.default_rng()
+    rng = np.random.default_rng(42)
     raw = rng.exponential(1.0, size=(n_portfolios, n_assets))
     weights = raw / raw.sum(axis=1, keepdims=True)
 
@@ -163,7 +162,7 @@ def sample_weights(
     return weights.astype(np.float64)
 
 # Section 4 - Monte Carlo Simulation (Python fallback)
-def _gbm_paths(mu: np.ndarray, L: np.ndarray, weights: np.ndarray, n_days: int) -> np.ndarray:
+def _gbm_paths(mu: np.ndarray, L: np.ndarray, weights: np.ndarray, n_days: int, normals: np.ndarray) -> np.ndarray:
     """
     Path-dependent GBM simulation — Python reference implementation (intentionally slow).
 
@@ -224,13 +223,12 @@ def _gbm_paths(mu: np.ndarray, L: np.ndarray, weights: np.ndarray, n_days: int) 
     # Pre-convert to Python lists — avoids per-element NumPy indexing overhead
     L_py  = L.tolist()
     mu_py = mu.tolist()
-    rng   = np.random.default_rng(42)
 
     for p in range(n_portfolios):
         target_w = weights[p].tolist()
         path_sum = [0.0] * (n_days + 1)
 
-        for _ in range(N_MC_PATHS):
+        for mc_idx in range(N_MC_PATHS):
             curr_w       = list(target_w)
             val          = 1.0
             peak         = 1.0
@@ -241,9 +239,8 @@ def _gbm_paths(mu: np.ndarray, L: np.ndarray, weights: np.ndarray, n_days: int) 
 
             for t in range(n_days):
 
-                # ── GBM step: draw correlated log returns ──────────────────
-                # Single batch draw (one fast NumPy call for all n_assets)
-                z = rng.standard_normal(n_assets)
+                # ── GBM step: use pre-generated normals (identical to C++) ─────
+                z = normals[p, mc_idx, t].tolist()
 
                 port_ret     = 0.0
                 asset_ret_py = []
@@ -307,89 +304,6 @@ def _gbm_paths(mu: np.ndarray, L: np.ndarray, weights: np.ndarray, n_days: int) 
 
     return port_values
 
-def __bootstrap_paths(log_ret, weights, n_days) -> np.ndarray:
-    """
-    Historical Bootstrap — Python/NumPy fallback.
-
-    WHAT BOOTSTRAP DOES:
-    Instead of fitting a parametric model (GBM), we resample actual observed
-    returns WITH REPLACEMENT. Each simulated "day" is a random historical day.
-
-    THE KEY IMPLEMENTATION DETAIL:
-    We sample ENTIRE ROWS of the returns matrix (one row = one calendar day,
-    all assets). This is what preserves cross-asset correlations automatically.
-    We never need to estimate or simulate correlations separately — they are
-    baked into the historical data.
-
-    WHEN TO PREFER BOOTSTRAP OVER GBM:
-    - When asset returns have fat tails (BTC has extremely fat tails)
-    - When you want crash scenarios from actual history to appear
-    - When you're skeptical of the normality assumption in GBM
-    - As a robustness check against GBM results
-
-    Returns shape (n_portfolios, n_days + 1).
-    """
-    ret_matrix = log_ret.values
-    T = ret_matrix.shape[0]
-    n_portfolios = weights.shape[0]
-    rng = np.random.default_rng(42)
-    port_values = np.ones((n_portfolios, n_days + 1))
-
-    for t in range(n_days):
-        row = ret_matrix[rng.integers(0, T)]
-        day_ret = np.expm1(row)
-        port_ret = weights @ day_ret
-        port_values[:, t + 1] = port_values[:, t] * (1.0 + port_ret)
-
-    return port_values
-
-def _regime_paths(log_ret, prices_full, weights, n_days) -> np.ndarray:
-    """
-    Regime-Weighted Bootstrap.
-
-    MOTIVATION FROM THE RESEARCH (Test 3):
-    Bitcoin's behavior differs dramatically by VIX regime:
-      - Risk-On  (VIX < 20):  BTC averages +138% annualized
-      - Risk-Off (VIX >= 20): BTC averages -69% annualized
-    A plain bootstrap ignores current market conditions. If we're currently
-    in a Risk-Off regime, a naive bootstrap gives an over-optimistic outlook.
-
-    THE 70/30 WEIGHTING:
-    Volatility regimes PERSIST (volatility clustering). Once VIX spikes,
-    it tends to stay elevated. The 70/30 split means: sample 70% from the
-    current regime, 30% from the other. This captures regime persistence
-    without ignoring the possibility of regime change.
-
-    Falls back to plain bootstrap if VIX data unavailable (Mode 2).
-    """
-    if "VIX" not in prices_full.columns:
-        return __bootstrap_paths(log_ret, weights, n_days)
-    
-    vix = prices_full["VIX"].reindex(log_ret.index).values
-    ret_matrix = log_ret.values
-    T = ret_matrix.shape[0]
-
-    risk_on_idx = np.where(vix < 20)[0]
-    risk_off_idx = np.where(vix >= 20)[0]
-
-    current_vix = prices_full["VIX"].iloc[-1]
-    in_risk_off = bool(current_vix >= 20)
-
-    n_portfolios = weights.shape[0]
-    rng = np.random.default_rng(42)
-    port_values = np.ones((n_portfolios, n_days + 1))
-
-    for t in range(n_days):
-        use_risk_off = in_risk_off if rng.random() < 0.70 else (not in_risk_off)
-        pool = risk_off_idx if (use_risk_off and len(risk_off_idx) > 0) else \
-            risk_on_idx if (not use_risk_off and len(risk_on_idx) > 0) else \
-            np.arange(T)
-        row = ret_matrix[rng.choice(pool)]
-        day_ret = np.expm1(row)
-        port_ret = weights @ day_ret
-        port_values[:, t + 1] = port_values[:, t] * (1.0 + port_ret)
-    
-    return port_values
 
 # Section 5 - Portfolio Metrics
 def compute_metrics(port_values: np.ndarray, rf: float = RF_ANNUAL) -> np.ndarray:
@@ -522,52 +436,51 @@ def fan_percentiles(port_values: np.ndarray, investment: float) -> dict:
     }
 
 # Section 8 - Pipeline Runner
-def _run_pipeline(prices, prices_full, n_portfolios, forecast_method,
+def _run_pipeline(prices, n_portfolios, use_cpp,
                   btc_idx, btc_min, btc_max, rf, risk_profile, max_dd_custom,
                   investment, n_fan=300):
     """Full end-to-end pipeline from raw prices to optimal portfolio + fan chart."""
     n_assets = prices.shape[1]
     log_ret, mu, cov = calibrate(prices)
     L = cholesky_factor(cov)
+
+    # Fixed seed — same portfolio candidates every run
     weights = sample_weights(n_assets, n_portfolios, btc_idx, btc_min, btc_max)
 
+    # Pre-generate ALL random normals from a fixed seed.
+    # Both Python and C++ read from this identical array, so they produce
+    # bit-for-bit the same simulated paths and therefore the same output.
+    _rng        = np.random.default_rng(99)
+    normals     = _rng.standard_normal((n_portfolios, N_MC_PATHS, SIM_DAYS, n_assets)).astype(np.float64)
+    fan_normals = _rng.standard_normal((n_fan,        N_MC_PATHS, SIM_DAYS, n_assets)).astype(np.float64)
+
     t0 = time.perf_counter()
-    use_cpp = _CPP and forecast_method == "GBM (Geometric Brownian Motion)"
 
     if use_cpp:
         res = _mc_cpp.run_monte_carlo(
-            mu, L, weights, SIM_DAYS, rf / TRADING_DAYS,
-            N_MC_PATHS, float(REBAL_FREQ), DRIFT_LIMIT, TXCOST, DD_TRIGGER, DD_HALFLIFE,
+            mu, L, weights, normals, SIM_DAYS, rf / TRADING_DAYS,
+            float(REBAL_FREQ), DRIFT_LIMIT, TXCOST, DD_TRIGGER, DD_HALFLIFE,
         )
         port_values = res["paths"]
-        metrics = res["metrics"]
+        metrics     = res["metrics"]
     else:
-        if forecast_method == "GBM (Geometric Brownian Motion)":
-            port_values = _gbm_paths(mu, L, weights, SIM_DAYS)
-        elif forecast_method == "Historical Bootstrap":
-            port_values = __bootstrap_paths(log_ret, weights, SIM_DAYS)
-        else:
-            port_values = _regime_paths(log_ret, prices_full, weights, SIM_DAYS)
-        metrics = compute_metrics(port_values, rf)
+        port_values = _gbm_paths(mu, L, weights, SIM_DAYS, normals)
+        metrics     = compute_metrics(port_values, rf)
 
-    elasped = time.perf_counter() - t0
+    elapsed = time.perf_counter() - t0
     optimal = find_optimal(weights, metrics, risk_profile, max_dd_custom, btc_idx)
 
-    # Fan chart: n_fan independent paths, all with fixed optimal weights
+    # Fan chart: n_fan independent paths, all using the fixed optimal weights
     fan_w = np.tile(optimal["weights"], (n_fan, 1))
     if use_cpp:
         fan_paths = _mc_cpp.run_monte_carlo(
-            mu, L, fan_w, SIM_DAYS, rf / TRADING_DAYS,
-            N_MC_PATHS, float(REBAL_FREQ), DRIFT_LIMIT, TXCOST, DD_TRIGGER, DD_HALFLIFE,
+            mu, L, fan_w, fan_normals, SIM_DAYS, rf / TRADING_DAYS,
+            float(REBAL_FREQ), DRIFT_LIMIT, TXCOST, DD_TRIGGER, DD_HALFLIFE,
         )["paths"]
-    elif forecast_method == "GBM (Geometric Brownian Motion)":
-        fan_paths = _gbm_paths(mu, L, fan_w, SIM_DAYS)
-    elif forecast_method == "Historical Bootstrap":
-        fan_paths = __bootstrap_paths(log_ret, fan_w, SIM_DAYS)
     else:
-        fan_paths = _regime_paths(log_ret, prices_full, fan_w, SIM_DAYS)
+        fan_paths = _gbm_paths(mu, L, fan_w, SIM_DAYS, fan_normals)
 
-    return weights, metrics, optimal, fan_paths, elasped, log_ret, mu, cov
+    return weights, metrics, optimal, fan_paths, elapsed, log_ret, mu, cov
 
 # Section 9 - Charts
 def _color(name: str) -> str:
@@ -667,43 +580,77 @@ def chart_donut(weights, asset_names, title, investment=None):
     return fig
 
 # Section 10 - Mode 1: Auto-Allocate
-def _mode1(investment, risk_profile, forecast_method, n_portfolios, btc_min, btc_max, rf, max_dd_custom):
+def _mode1(investment, risk_profile, n_portfolios, btc_min, btc_max, rf, max_dd_custom):
     prices = load_csv_universe()
-    prices_full = load_csv_full()
     asset_names = list(prices.columns)
     btc_idx = asset_names.index("BTC")
 
     st.subheader("Asset Universe — BTC · Gold · SPY · QQQ · TLT")
     st.caption("All data from historical daily prices since 2015. Long-only, weights sum to 100%.")
+    st.caption(
+        f"Simulation: {n_portfolios:,} portfolios × {SIM_DAYS} days × {N_MC_PATHS} paths "
+        f"with quarterly rebalancing and drawdown circuit breaker."
+    )
 
-    with st.spinner(f"Running {n_portfolios:,} Monte Carlo simulations..."):
-        weights, metrics, optimal, fan_paths, elasped, log_ret, mu, cov = _run_pipeline(
-            prices, prices_full, n_portfolios, forecast_method, btc_idx, btc_min, btc_max, rf,
-            risk_profile, max_dd_custom, investment,
-        )
+    col_py, col_cpp = st.columns(2)
+    run_py = col_py.button(
+        "▶  Run — Python  (~40s)", key="m1_run_py", use_container_width=True,
+    )
+    run_cpp = col_cpp.button(
+        "⚡  Run — C++  (~1–2s)", key="m1_run_cpp", use_container_width=True,
+        disabled=not _CPP,
+        help="" if _CPP else "Compile monte_carlo.cpp first — see app/setup.py",
+    )
 
-    engine = "C++ · Pybind11" if (_CPP and forecast_method == "GBM (Geometric Brownian Motion)") else "Python · NumPy"
-    st.success(f"Simulation complete — {n_portfolios:,} portfolios × {SIM_DAYS} days × {N_MC_PATHS} paths in **{elasped:.2f}s** using {engine}")
+    pipeline_kwargs = dict(
+        prices=prices, n_portfolios=n_portfolios,
+        btc_idx=btc_idx, btc_min=btc_min, btc_max=btc_max, rf=rf,
+        risk_profile=risk_profile, max_dd_custom=max_dd_custom, investment=investment,
+    )
 
+    if run_py:
+        with st.spinner(f"Running {n_portfolios:,} portfolios in Python — ~40s…"):
+            result = _run_pipeline(**pipeline_kwargs, use_cpp=False)
+        st.session_state["m1_result"] = result
+        st.session_state["m1_engine"] = "Python · NumPy"
+
+    if run_cpp:
+        with st.spinner(f"Running {n_portfolios:,} portfolios via C++ — ~1–2s…"):
+            result = _run_pipeline(**pipeline_kwargs, use_cpp=True)
+        st.session_state["m1_result"] = result
+        st.session_state["m1_engine"] = "C++ · Pybind11"
+
+    if "m1_result" not in st.session_state:
+        st.info("Click **Run — Python** or **Run — C++** above to start the simulation.")
+        return
+
+    weights, metrics, optimal, fan_paths, elapsed, _, _, _ = st.session_state["m1_result"]
+    engine = st.session_state.get("m1_engine", "Python · NumPy")
+
+    st.success(
+        f"Done — {n_portfolios:,} portfolios × {SIM_DAYS} days × {N_MC_PATHS} paths "
+        f"in **{elapsed:.2f}s** using {engine}"
+    )
     st.divider()
+
     c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("Expected Return", f"{optimal['ann_return']:.1%}")
-    c2.metric("Volatility", f"{optimal['ann_vol']:.1%}")
-    c3.metric("Sharpe Ratio", f"{optimal['sharpe']:.3%}")
-    c4.metric("Max Drawdown", f"{optimal['max_drawdown']:.1%}")
-    c5.metric("BTC Allocation", f"{optimal['btc_alloc']:.1%}")
+    c2.metric("Volatility",      f"{optimal['ann_vol']:.1%}")
+    c3.metric("Sharpe Ratio",    f"{optimal['sharpe']:.3f}")
+    c4.metric("Max Drawdown",    f"{optimal['max_drawdown']:.1%}")
+    c5.metric("BTC Allocation",  f"{optimal['btc_alloc']:.1%}")
     st.divider()
 
     col_l, col_r = st.columns([6, 4])
     with col_l:
         st.plotly_chart(
             chart_frontier(weights, metrics, optimal["idx"], asset_names),
-            use_container_width=True
+            use_container_width=True,
         )
     with col_r:
         st.plotly_chart(
-            chart_donut(optimal["weights"], asset_names, "Optimal Allocation", investment), 
-            use_container_width=True
+            chart_donut(optimal["weights"], asset_names, "Optimal Allocation", investment),
+            use_container_width=True,
         )
 
     percs = fan_percentiles(fan_paths, investment)
@@ -728,21 +675,21 @@ def _mode1(investment, risk_profile, forecast_method, n_portfolios, btc_min, btc
     _thesis_callout(optimal, weights, metrics, btc_idx)
 
 # Section 11 - Mode 2: Optimize My Portfolio
-def _mode2(investment, risk_profile, forecast_method, n_portfolios, btc_min, btc_max, rf, max_dd_custom):
+def _mode2(investment, risk_profile, n_portfolios, btc_min, btc_max, rf, max_dd_custom):
     st.subheader("Enter Your Current Portfolio")
 
     ticker_input = st.text_area(
         "Your holdings (yfinance tickers, comma-separated)",
         value="SPY, GLD, QQQ",
-        help="E.g.: SPY, GLD, QQQ, APPL, MSFT, BTC-USD",
+        help="E.g.: SPY, GLD, QQQ, AAPL, MSFT, BTC-USD",
         key="m2_tickers",
     )
     raw_tickers = [t.strip().upper() for t in ticker_input.split(",") if t.strip()]
     if not raw_tickers:
         st.info("Enter at least one ticker above.")
         return
-    
-    st.markdown("**Curent holding value per position ($)**")
+
+    st.markdown("**Current holding value per position ($)**")
     amount_cols = st.columns(min(len(raw_tickers), 4))
     amounts: dict = {}
     for i, t in enumerate(raw_tickers):
@@ -756,8 +703,8 @@ def _mode2(investment, risk_profile, forecast_method, n_portfolios, btc_min, btc
     if total_val <= 0:
         st.warning("Enter holding amounts to continue.")
         return
-    
-    cur_names = list(amounts.keys())
+
+    cur_names   = list(amounts.keys())
     cur_weights = np.array([amounts[t] / total_val for t in cur_names])
 
     col_tbl, col_pie = st.columns(2)
@@ -769,51 +716,95 @@ def _mode2(investment, risk_profile, forecast_method, n_portfolios, btc_min, btc
         ]), hide_index=True, use_container_width=True)
     with col_pie:
         st.plotly_chart(chart_donut(cur_weights, cur_names, "Current Allocation"), use_container_width=True)
-    
-    if not st.button("▶ Run Optimization", type="primary", key="m2_run"):
-        return
-    
-    # Fetch live data; always add BTC to the optimization universe
-    fetch_set = tuple(sorted(set(raw_tickers + ["BTC-USD"])))
-    try:
-        with st.spinner("Fetching live data from Yahoo Finance…"):
-            prices_raw = load_yfinance(fetch_set)
-        prices_raw = prices_raw.rename(columns={"BTC-USD": "BTC"})
-        if prices_raw.empty or len(prices_raw) < 60:
-            st.error("Not enough price history was available for these tickers. Try removing newer/thinner tickers like RGTI, IONQ, GBTS, or CCJ.")
+
+    # Clear cached results when the user changes their portfolio inputs
+    portfolio_hash = hash((tuple(raw_tickers), tuple(sorted(amounts.items()))))
+    if st.session_state.get("m2_portfolio_hash") != portfolio_hash:
+        st.session_state.pop("m2_result", None)
+        st.session_state["m2_portfolio_hash"] = portfolio_hash
+
+    st.caption(
+        f"Simulation: {n_portfolios:,} portfolios × {SIM_DAYS} days × {N_MC_PATHS} paths. "
+        "BTC is always included in the optimization universe."
+    )
+
+    col_py, col_cpp = st.columns(2)
+    run_py = col_py.button(
+        "▶  Run — Python  (~40s)", key="m2_run_py", use_container_width=True,
+    )
+    run_cpp = col_cpp.button(
+        "⚡  Run — C++  (~1–2s)", key="m2_run_cpp", use_container_width=True,
+        disabled=not _CPP,
+        help="" if _CPP else "Compile monte_carlo.cpp first — see app/setup.py",
+    )
+
+    if run_py or run_cpp:
+        fetch_set = tuple(sorted(set(raw_tickers + ["BTC-USD"])))
+        try:
+            with st.spinner("Fetching live data from Yahoo Finance…"):
+                prices_raw = load_yfinance(fetch_set)
+            prices_raw = prices_raw.rename(columns={"BTC-USD": "BTC"})
+            if prices_raw.empty or len(prices_raw) < 60:
+                st.error("Not enough price history. Try removing newer or thinly-traded tickers.")
+                return
+        except Exception as e:
+            st.error(f"Could not fetch data: {e}")
             return
-    except Exception as e:
-        st.error(f"Could not fetch data: {e}")
+
+        asset_names = list(prices_raw.columns)
+        btc_idx     = asset_names.index("BTC") if "BTC" in asset_names else 0
+
+        cur_w_full = np.zeros(len(asset_names))
+        for i, name in enumerate(asset_names):
+            key = "BTC-USD" if name == "BTC" else name
+            if key in amounts:
+                cur_w_full[i] = amounts[key] / total_val
+
+        log_ret_cur, _, cov_cur = calibrate(prices_raw)
+        cur_port_daily = (np.expm1(log_ret_cur.values) * cur_w_full).sum(axis=1)
+        n_hist         = len(cur_port_daily)
+        cur_ann_ret    = float((1 + cur_port_daily).prod() ** (TRADING_DAYS / n_hist) - 1)
+        cur_ann_vol    = float(np.sqrt(cur_w_full @ cov_cur @ cur_w_full) * np.sqrt(TRADING_DAYS))
+        cur_sharpe     = (cur_ann_ret - rf) / cur_ann_vol if cur_ann_vol > 0 else 0.0
+
+        with st.spinner(f"Running {n_portfolios:,} Monte Carlo simulations…"):
+            result = _run_pipeline(
+                prices_raw, n_portfolios, run_cpp,
+                btc_idx, btc_min, btc_max, rf, risk_profile, max_dd_custom, total_val,
+            )
+
+        st.session_state["m2_result"] = result
+        st.session_state["m2_engine"] = "C++ · Pybind11" if run_cpp else "Python · NumPy"
+        st.session_state["m2_meta"]   = {
+            "asset_names": asset_names,
+            "cur_w_full":  cur_w_full,
+            "cur_ann_ret": cur_ann_ret,
+            "cur_ann_vol": cur_ann_vol,
+            "cur_sharpe":  cur_sharpe,
+            "total_val":   total_val,
+            "prices_raw":  prices_raw,
+        }
+
+    if "m2_result" not in st.session_state:
+        st.info("Click **Run — Python** or **Run — C++** above to start the optimization.")
         return
-    
-    asset_names = list(prices_raw.columns)
+
+    weights, metrics, optimal, fan_paths, elapsed, _, _, _ = st.session_state["m2_result"]
+    engine = st.session_state.get("m2_engine", "Python · NumPy")
+    meta   = st.session_state["m2_meta"]
+
+    asset_names = meta["asset_names"]
+    cur_w_full  = meta["cur_w_full"]
+    cur_ann_ret = meta["cur_ann_ret"]
+    cur_ann_vol = meta["cur_ann_vol"]
+    cur_sharpe  = meta["cur_sharpe"]
+    total_val   = meta["total_val"]
+    prices_raw  = meta["prices_raw"]
     btc_idx     = asset_names.index("BTC") if "BTC" in asset_names else 0
 
-    # Map user holdings onto the full asset universe (BTC starts at 0 if not held)
-    cur_w_full = np.zeros(len(asset_names))
-    for i, name in enumerate(asset_names):
-        key = "BTC-USD" if name == "BTC" else name
-        if key in amounts:
-            cur_w_full[i] = amounts[key] / total_val
-
-    # Current portfolio historical metrics
-    log_ret_cur, _, cov_cur = calibrate(prices_raw)
-    cur_port_daily = (np.expm1(log_ret_cur.values) * cur_w_full).sum(axis=1)
-    n_hist         = len(cur_port_daily)
-    cur_ann_ret    = float((1 + cur_port_daily).prod() ** (TRADING_DAYS / n_hist) - 1)
-    cur_ann_vol    = float(np.sqrt(cur_w_full @ cov_cur @ cur_w_full) * np.sqrt(TRADING_DAYS))
-    cur_sharpe     = (cur_ann_ret - rf) / cur_ann_vol if cur_ann_vol > 0 else 0.0
-
-    with st.spinner(f"Running {n_portfolios:,} Monte Carlo simulations…"):
-        weights, metrics, optimal, fan_paths, elapsed, _, _, _ = _run_pipeline(
-            prices_raw, prices_raw, n_portfolios, forecast_method,
-            btc_idx, btc_min, btc_max, rf, risk_profile, max_dd_custom, total_val,
-        )
-    
-    engine = "C++ · Pybind11" if (_CPP and forecast_method == "GBM (Geometric Brownian Motion)") else "Python · NumPy"
     st.success(f"Done — {n_portfolios:,} portfolios in **{elapsed:.2f}s** using {engine}")
-
     st.divider()
+
     c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("Expected Return", f"{optimal['ann_return']:.1%}", f"{optimal['ann_return'] - cur_ann_ret:+.1%} vs current")
     c2.metric("Volatility",      f"{optimal['ann_vol']:.1%}",   f"{optimal['ann_vol'] - cur_ann_vol:+.1%} vs current", delta_color="inverse")
@@ -843,12 +834,12 @@ def _mode2(investment, risk_profile, forecast_method, n_portfolios, btc_min, btc
         action  = "BUY" if delta > 50 else "SELL" if delta < -50 else "HOLD"
         rows.append({"Asset": name, "Current $": f"${cur_amt:,.0f}",
                      "Optimal $": f"${opt_amt:,.0f}", "Change $": f"${delta:+,.0f}", "Action": action})
-    
+
     def _row_color(row):
         if row["Action"] == "BUY":  return ["background-color: rgba(34,197,94,0.18)"] * len(row)
         if row["Action"] == "SELL": return ["background-color: rgba(239,68,68,0.18)"] * len(row)
         return [""] * len(row)
-    
+
     st.dataframe(pd.DataFrame(rows).style.apply(_row_color, axis=1), hide_index=True, use_container_width=True)
 
     percs = fan_percentiles(fan_paths, total_val)
@@ -903,13 +894,6 @@ def show_portfolio_simulator():
             format="%d%%", key="sim_max_dd",
         ) / 100
 
-    forecast_method = st.sidebar.selectbox(
-        "Forecast Method",
-        ["GBM (Geometric Brownian Motion)", "Historical Bootstrap", "Regime-Weighted Bootstrap"],
-        key="sim_forecast",
-        help="GBM uses C++ when compiled. Bootstrap and Regime-Weighted use Python.",
-    )
-
     n_portfolios = st.sidebar.slider(
         "Monte Carlo Simulations", 500, 10_000, 3_000, step=500, key="sim_n",
         help="Each portfolio runs 2 paths × 504 days. Python ≈ 40s at 3,000. C++ ≈ 1–2s.",
@@ -929,7 +913,6 @@ def show_portfolio_simulator():
     st.divider()
 
     if mode == "Auto-Allocate":
-        _mode1(investment, risk_profile, forecast_method, n_portfolios, btc_min, btc_max, rf, max_dd_custom)
+        _mode1(investment, risk_profile, n_portfolios, btc_min, btc_max, rf, max_dd_custom)
     else:
-        _mode2(investment, risk_profile, forecast_method, n_portfolios, btc_min, btc_max, rf, max_dd_custom)
-  
+        _mode2(investment, risk_profile, n_portfolios, btc_min, btc_max, rf, max_dd_custom)

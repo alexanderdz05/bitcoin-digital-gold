@@ -49,25 +49,6 @@ This analysis tests the "digital gold" narrative through five direct tests
 5. **Post-2020 institutionalization:** Split results pre- and post-2020.
 6. **Portfolio role:** Evaluate whether BTC improves portfolio as a diversifier.
 
-
-## Future Development
-### Phase 2 – Advanced Research:
-- Bitcoin ETF flow analysis
-- Inflation regime analysis
-- Risk-on vs risk-off market regime testing
-- Institutional adoption trend analysis
-- Rolling correlation analysis through time
-### Phase 3 – Interactive Dashboard
-- Streamlit dashboard
-- Interactive portfolio allocation tool
-- Dynamic risk and return analysis
-- Historical scenario testing
-### Phase 4 – High Performance & Optimization
-- C++ portfolio optimization engine
-- Pybind11 integration with Python
-- Efficient frontier calculations
-- Monte Carlo simulations (maybe)
-- Optimal Bitcoin allocation recommendations
 ### Technologies Used
 - Python
 - Pandas
@@ -75,6 +56,18 @@ This analysis tests the "digital gold" narrative through five direct tests
 - Matplotlib
 - yfinance
 - pandas-datareader
+
+
+### Instructions on how to run the program
+One-time setup (do this once): open a terminal run these three commands in order:
+`pip install pybind11 setuptools`
+`brew install libomp`
+`cd "/Users/alexanderdominguez/Desktop/Deutsche Bank Intern Project/app"`
+
+Ever time you change `monte_carlo.cpp`: From the `app/` directory, run this single command to recompile:
+`python setup.py build_ext --inplace`
+This will produce a file like `monte_carlo.cpython-313-darwin.so` in the same `app/` folder.
+`streamlit run main.py`
 
 Author: Alexander Dominguez Zhakav
 2026 Deutsche Bank Summer Internship Case Study
