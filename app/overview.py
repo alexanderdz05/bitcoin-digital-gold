@@ -3,6 +3,9 @@ import pandas as pd
 import yfinance as yf
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
+import os
+
+_DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 
 # Helper Functions
 @st.cache_data(ttl=300)
@@ -14,7 +17,7 @@ def load_btc_data():
 
 @st.cache_data
 def load_asset_prices():
-    prices = pd.read_csv("data/asset_prices.csv", index_col=0, parse_dates=True)
+    prices = pd.read_csv(os.path.join(_DATA_DIR, "asset_prices.csv"), index_col=0, parse_dates=True)
     returns = prices.pct_change().dropna()
     return prices, returns
 
@@ -138,12 +141,12 @@ def show_overview():
 
     st.subheader("Methodology")
     st.markdown("""
-    This analysis evaluates the digital gold narrative through six tests:
+    This analysis evaluates the digital-gold narrative through five empirical tests, followed by a sixth portfolio-allocation analysis that determines Bitcoin’s practical role.
 
     1. Gold-like behavior
     2. Inflation hedge behavior
     3. Risk asset behavior
     4. Stress-period behavior
-    5. Post-2020 institutionalization
-    6. Portfolio diversification
+    5. Post-2020 institutionalization \n
+    Bonus: Portfolio Role
     """)

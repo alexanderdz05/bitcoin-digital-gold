@@ -2,6 +2,9 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from pandas_datareader import data as pdr
+import os
+
+_DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 
 CORE_ASSETS = ["BTC", "Gold", "SPY"]
 ASSET_COLORS = {
@@ -20,7 +23,7 @@ STRESS_PERIODS = {
 
 @st.cache_data
 def load_asset_prices():
-    prices = pd.read_csv("data/asset_prices.csv", index_col=0, parse_dates=True)
+    prices = pd.read_csv(os.path.join(_DATA_DIR, "asset_prices.csv"), index_col=0, parse_dates=True)
     returns = prices.pct_change().dropna()
     return prices, returns
 

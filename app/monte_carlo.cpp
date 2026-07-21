@@ -237,7 +237,7 @@ PYBIND11_MODULE(monte_carlo, m) {
     m.def("run_monte_carlo", &run_monte_carlo,
         py::arg("mu"),
         py::arg("chol"),
-        py::arg("weights"),
+        py::arg("weights"), 
         py::arg("normals"),
         py::arg("n_days")      = 504,
         py::arg("rf_daily")    = 0.0,
