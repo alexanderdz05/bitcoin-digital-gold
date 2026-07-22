@@ -8,7 +8,7 @@ _DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 
 CORE_ASSETS = ["BTC", "Gold", "SPY"]
 ASSET_COLORS = {
-    "BTC": "#F7931A",
+    "BTC": "#DC2626",
     "Gold": "#EAB308",
     "SPY": "#3B82F6"
 }

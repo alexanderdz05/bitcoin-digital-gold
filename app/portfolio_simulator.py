@@ -30,7 +30,7 @@ DD_HALFLIFE = 21      # days BTC remains reduced after circuit breaker trips
 BTC_COL_DEFAULT = 0   # BTC is index 0 in the Mode 1 universe
 
 ASSET_COLORS = {
-    "BTC": "#F7931A", 
+    "BTC": "#DC2626",
     "Gold": "#EAB308",
     "GLD": "#EAB308",
     "SPY": "#3B82F6",

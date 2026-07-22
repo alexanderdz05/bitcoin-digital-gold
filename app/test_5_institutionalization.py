@@ -26,11 +26,11 @@ def show_test5():
         "it may become more correlated with equities."
     )
 
-    pre_prices = prices.loc[: "2019-12-31", CORE_ASSETS]
-    pre_returns = returns.loc[: "2019-12-31", CORE_ASSETS]
+    pre_prices = prices.loc[: "2020-12-31", CORE_ASSETS]
+    pre_returns = returns.loc[: "2020-12-31", CORE_ASSETS]
 
-    post_prices = prices.loc["2020-01-01" :, CORE_ASSETS]
-    post_returns = returns.loc["2020-01-01" :, CORE_ASSETS]
+    post_prices = prices.loc["2021-01-01" :, CORE_ASSETS]
+    post_returns = returns.loc["2021-01-01" :, CORE_ASSETS]
 
     def period_metrics(price_data, return_data):
         df = pd.DataFrame(index=CORE_ASSETS)
@@ -46,7 +46,11 @@ def show_test5():
     pre_corr = pre_returns.corr()
     post_corr = post_returns.corr()
 
-    st.subheader("Pre-2020 vs Post-2020 Summary")
+    st.subheader("Pre-Institutional vs Post-Institutional Summary")
+    st.caption(
+        "Split at Jan 1 2021 — MicroStrategy's August 2020 purchase began the institutional wave; "
+        "the bulk of inflows (Tesla, Coinbase IPO, futures ETF, spot ETFs) arrived from 2021 onward."
+    )
 
     summary = pd.DataFrame(
         {
@@ -57,14 +61,14 @@ def show_test5():
                 "BTC-SPY Correlation",
                 "BTC-Gold Correlation",
             ],
-            "Pre-2020": [
+            "Pre-Institutional (≤2020)": [
                 pre_metrics.loc["BTC", "Annualized Return"],
                 pre_metrics.loc["BTC", "Annualized Volatility"],
                 pre_metrics.loc["BTC", "Max Drawdown"],
                 pre_corr.loc["BTC", "SPY"],
                 pre_corr.loc["BTC", "Gold"],
             ],
-            "Post-2020": [
+            "Post-Institutional (2021+)": [
                 post_metrics.loc["BTC", "Annualized Return"],
                 post_metrics.loc["BTC", "Annualized Volatility"],
                 post_metrics.loc["BTC", "Max Drawdown"],
@@ -77,19 +81,19 @@ def show_test5():
     display_summary = summary.copy()
 
     for idx in [0, 1, 2]:
-        display_summary.loc[idx, "Pre-2020"] = f"{summary.loc[idx, 'Pre-2020']:.1%}"
-        display_summary.loc[idx, "Post-2020"] = f"{summary.loc[idx, 'Post-2020']:.1%}"
+        display_summary.loc[idx, "Pre-Institutional (≤2020)"] = f"{summary.loc[idx, 'Pre-Institutional (≤2020)']:.1%}"
+        display_summary.loc[idx, "Post-Institutional (2021+)"] = f"{summary.loc[idx, 'Post-Institutional (2021+)']:.1%}"
 
     for idx in [3, 4]:
-        display_summary.loc[idx, "Pre-2020"] = f"{summary.loc[idx, 'Pre-2020']:.3f}"
-        display_summary.loc[idx, "Post-2020"] = f"{summary.loc[idx, 'Post-2020']:.3f}"
+        display_summary.loc[idx, "Pre-Institutional (≤2020)"] = f"{summary.loc[idx, 'Pre-Institutional (≤2020)']:.3f}"
+        display_summary.loc[idx, "Post-Institutional (2021+)"] = f"{summary.loc[idx, 'Post-Institutional (2021+)']:.3f}"
 
     st.dataframe(display_summary, hide_index=True, use_container_width=True)
 
     st.divider()
 
     # Rolling Correlation Around Institutionalization
-    st.subheader("Rolling Correlation Around Institutionalization")
+    st.subheader("Rolling Correlation: BTC vs SPY and Gold (252-Day Window)")
 
     roll = 252
 
@@ -104,7 +108,7 @@ def show_test5():
             y=roll_btc_spy,
             mode="lines",
             name="BTC vs SPY",
-            line=dict(color="#EF4444", width=2.5),
+            line=dict(color="#DC2626", width=2.5),
         )
     )
 
@@ -118,13 +122,13 @@ def show_test5():
         )
     )
 
+    # Shaded region starts Aug 11 2020 — MicroStrategy's first purchase,
+    # the commonly-cited start of the institutional adoption wave
     fig.add_vrect(
-        x0="2020-01-01",
+        x0="2020-08-11",
         x1=str(prices.index.max().date()),
         fillcolor="rgba(99,102,241,0.08)",
         line_width=0,
-        annotation_text="Post-2020 Institutional Era",
-        annotation_position="top left",
     )
 
     fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
@@ -133,7 +137,7 @@ def show_test5():
         title="252-Day Rolling Correlation: BTC vs SPY and Gold",
         xaxis_title="Date",
         yaxis_title="Correlation",
-        height=430,
+        height=480,
         template="plotly_white",
         hovermode="x unified",
     )
@@ -142,7 +146,8 @@ def show_test5():
 
     st.info(
         f"**Key Finding (Test 5):** BTC-SPY correlation increased from "
-        f"**{pre_corr.loc['BTC', 'SPY']:.3f}** pre-2020 to **{post_corr.loc['BTC', 'SPY']:.3f}** post-2020. "
+        f"**{pre_corr.loc['BTC', 'SPY']:.3f}** (pre-institutional) to **{post_corr.loc['BTC', 'SPY']:.3f}** (post-institutional). "
         f"BTC-Gold correlation remained weak at **{post_corr.loc['BTC', 'Gold']:.3f}**. "
-        "Institutional adoption made Bitcoin more integrated with traditional risk markets, not more gold-like."
+        "The institutional wave — beginning with MicroStrategy in August 2020 and accelerating through Tesla, "
+        "futures ETFs (Oct 2021), and spot ETFs (Jan 2024) — made Bitcoin more correlated with equities, not more gold-like."
     )
