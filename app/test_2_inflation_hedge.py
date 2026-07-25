@@ -152,69 +152,6 @@ def show_test2():
 
     st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
 
-    st.divider()
-
-    # Bitcoin Monthly Returns vs YoY Inflation
-    st.subheader("Bitcoin Monthly Returns vs YoY Inflation")
-
-    scatter_df = regime_data[["BTC", "Inflation YoY", "Regime"]].copy()
-    scatter_df.index = scatter_df.index.astype(str)
-
-    regime_colors = {
-        label_low: "#3B82F6",
-        label_mod: "#F59E0B",
-        label_high: "#EF4444",
-    }
-
-    fig_scatter = go.Figure()
-
-    for regime in regime_order:
-        subset = scatter_df[scatter_df["Regime"] == regime]
-
-        fig_scatter.add_trace(
-            go.Scatter(
-                x=subset["Inflation YoY"],
-                y=subset["BTC"],
-                mode="markers",
-                name=regime,
-                marker=dict(color=regime_colors[regime], size=7, opacity=0.8),
-                text=subset.index,
-                hovertemplate="<b>%{text}</b><br>Inflation: %{x:.1%}<br>BTC Return: %{y:.1%}<extra></extra>",
-            )
-        )
-
-    x_vals = scatter_df["Inflation YoY"].values
-    y_vals = scatter_df["BTC"].values
-
-    slope = np.polyfit(x_vals, y_vals, 1)
-    x_line = np.linspace(x_vals.min(), x_vals.max(), 100)
-
-    fig_scatter.add_trace(
-        go.Scatter(
-            x=x_line,
-            y=np.polyval(slope, x_line),
-            mode="lines",
-            name="Trend",
-            line=dict(color="gray", dash="dot", width=1.5),
-        )
-    )
-
-    fig_scatter.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.4)
-    fig_scatter.add_vline(x=0, line_dash="dash", line_color="gray", opacity=0.4)
-
-    fig_scatter.update_layout(
-        title=f"BTC Monthly Return vs YoY Inflation (corr: {btc_corr:.3f})",
-        xaxis_title="Inflation YoY",
-        yaxis_title="BTC Monthly Return",
-        xaxis_tickformat=".1%",
-        yaxis_tickformat=".0%",
-        height=430,
-        template="plotly_white",
-        legend=dict(orientation="h", y=1.02, x=1, xanchor="right"),
-    )
-
-    st.plotly_chart(fig_scatter, use_container_width=True)
-
     st.info(
         f"**Key Finding (Test 2):** Bitcoin's correlation with inflation is **{btc_corr:.3f}** "
         f"vs Gold's **{gold_corr:.3f}**. Bitcoin performed worst during **{label_high}** periods, "

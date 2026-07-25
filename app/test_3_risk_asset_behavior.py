@@ -139,19 +139,7 @@ def show_test3():
 
         st.plotly_chart(fig, use_container_width=True)
 
-    # Risk Asset Correlation Check
-    btc_spy_corr = returns_f[["BTC", "SPY"]].corr().loc["BTC", "SPY"]
-    btc_gold_corr = returns_f[["BTC", "Gold"]].corr().loc["BTC", "Gold"]
-
-    st.subheader("Risk Asset Correlation Check")
-
-    c1, c2, c3 = st.columns(3)
-    c1.metric("BTC-SPY Corr.", f"{btc_spy_corr:.3f}")
-    c2.metric("BTC-Gold Corr.", f"{btc_gold_corr:.3f}")
-    c3.metric("Risk-Off Days", f"{len(risk_off)}")
-
     st.info(
-        f"**Key Finding (Test 3):** Bitcoin's BTC-SPY correlation is **{btc_spy_corr:.3f}**, "
-        f"while BTC-Gold correlation is **{btc_gold_corr:.3f}**. "
+        "**Key Finding (Test 3):** "
         "Bitcoin performs best during risk-on markets and weakens during stress, supporting the high-beta risk asset view."
     )

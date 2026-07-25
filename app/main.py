@@ -26,7 +26,7 @@ page = st.sidebar.radio(
         "Test 3 - Risk Asset Behavior",
         "Test 4 - Stress Period Behavior",
         "Test 5 - Institutionalization",
-        "Test 6 - Portfolio Role"
+        "Portfolio Role"
     ]
 )
 
@@ -42,5 +42,5 @@ elif page == "Test 4 - Stress Period Behavior":
     show_test4()
 elif page == "Test 5 - Institutionalization":
     show_test5()
-elif page == "Test 6 - Portfolio Role":
+elif page == "Portfolio Role":
     show_portfolio_simulator()

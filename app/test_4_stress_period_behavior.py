@@ -30,17 +30,9 @@ def show_test4():
         options=list(STRESS_PERIODS.keys()),
         default=[
             "COVID Crash (Feb–Mar 2020)",
-            "2022 Inflation & Rate Hikes",
+            "COVID Recovery (Mar–Aug 2020)",
         ],
         key="test4_periods",
-    )
-
-    st.sidebar.markdown("**Custom Period**")
-
-    custom_label = st.sidebar.text_input(
-        "Label (optional)",
-        value="",
-        key="test4_custom_label",
     )
 
     st.info(

@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
 
 from utils import (
@@ -70,32 +69,15 @@ def show_test1():
 
     st.divider()
 
-    # Correlation Matrix
-    st.subheader("Correlation Matrix")
+    # Correlation
+    st.subheader("Pairwise Correlations")
 
     corr = returns_f.corr()
 
-    fig_corr = go.Figure(
-        data=go.Heatmap(
-            z=corr.values,
-            x=corr.columns,
-            y=corr.index,
-            colorscale="Blues",
-            zmin=0,
-            zmax=1,
-            text=np.round(corr.values, 2),
-            texttemplate="%{text}",
-            hovertemplate="%{y} vs %{x}: %{z:.3f}<extra></extra>",
-        )
-    )
-
-    fig_corr.update_layout(
-        title="Return Correlation Matrix",
-        height=430,
-        template="plotly_white",
-    )
-
-    st.plotly_chart(fig_corr, use_container_width=True)
+    col_a, col_b, col_c = st.columns(3)
+    col_a.metric("BTC vs Gold", f"{corr.loc['BTC', 'Gold']:.3f}")
+    col_b.metric("BTC vs SPY",  f"{corr.loc['BTC', 'SPY']:.3f}")
+    col_c.metric("Gold vs SPY", f"{corr.loc['Gold', 'SPY']:.3f}")
 
     st.divider()
 

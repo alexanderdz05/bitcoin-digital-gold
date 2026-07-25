@@ -3,10 +3,6 @@ import pandas as pd
 import yfinance as yf
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
-import os
-
-_DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
-
 # Helper Functions
 @st.cache_data(ttl=300)
 def load_btc_data():
@@ -15,26 +11,12 @@ def load_btc_data():
         btc.columns = btc.columns.get_level_values(0)
     return btc.dropna()
 
-@st.cache_data
-def load_asset_prices():
-    prices = pd.read_csv(os.path.join(_DATA_DIR, "asset_prices.csv"), index_col=0, parse_dates=True)
-    returns = prices.pct_change().dropna()
-    return prices, returns
-
-def annualized_return(daily_returns):
-    return (1 + daily_returns.mean()) ** 252 - 1
-
 def show_overview():
     # Title and Desc
     st.title("₿ Bitcoin as Digital Gold: Hedge or Hype")
     st.markdown("""
-    ### Project Thesis
-    Bitcoin is not yet digital gold. While its fixed supply and increasing institutional adoption support the narrative, 
-    empirical evidence suggests that Bitcoin behaves more like a high-beta risk asset than a safe-haven store of value. 
-    It failed to consistently hedge inflation, experienced significantly larger drawdowns than gold during periods of market stress, 
-    and became increasingly correlated with equities following institutional adoption after 2020. 
-    Nevertheless, small Bitcoin allocations improved portfolio efficiency and risk-adjusted returns, 
-    indicating that Bitcoin's value proposition lies in diversification and growth potential rather than in providing the protections traditionally associated with gold.
+    Five empirical tests. One verdict. Use the navigation to explore the evidence behind each claim —
+    then run the portfolio optimizer to see what allocation the data actually supports.
     """)
     
     # Bitcoin Live Price
@@ -106,42 +88,9 @@ def show_overview():
 
     st.divider()
 
-    # Overview Metrics
-    prices, returns = load_asset_prices()
-
-    pre_2020_returns = returns.loc[: "2020-12-31"]
-    post_2020_returns = returns.loc["2020-01-01" :]
-
-    pre_btc_return = annualized_return(pre_2020_returns["BTC"])
-    post_btc_return = annualized_return(post_2020_returns["BTC"])
-
-    btc_return_delta = post_btc_return - pre_btc_return
-
-    btc_spy_corr = post_2020_returns[["BTC", "SPY"]].corr().loc["BTC", "SPY"]
-    btc_gold_corr = post_2020_returns[["BTC", "Gold"]].corr().loc["BTC", "Gold"]
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric(
-        "BTC Annual Return",
-        f"{post_btc_return:.1%}",
-        f"{btc_return_delta:.1%} from pre-2020"
-    )
-    col2.metric(
-        "BTC-SPY Correlation",
-        f"{btc_spy_corr:.2f}",
-        f"+{btc_spy_corr - pre_2020_returns[["BTC", "SPY"]].corr().loc["BTC", "SPY"]:.2f} since pre-2020"
-    )
-    col3.metric(
-        "BTC-Gold Correlation",
-        f"{btc_gold_corr:.2f}",
-        "Still weak"
-    )
-
-    st.divider()
-
     st.subheader("Methodology")
     st.markdown("""
-    This analysis evaluates the digital-gold narrative through five empirical tests, followed by a sixth portfolio-allocation analysis that determines Bitcoin’s practical role.
+    This analysis evaluates the digital-gold narrative through five empirical tests, followed by a portfolio-allocation analysis that determines Bitcoin’s practical role.
 
     1. Gold-like behavior
     2. Inflation hedge behavior

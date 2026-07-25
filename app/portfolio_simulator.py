@@ -357,38 +357,42 @@ def find_optimal(weights, metrics, risk_profile, max_dd_custom, btc_col) -> dict
     """
     Select the best portfolio from all Monte Carlo simulations.
 
-    THE EFFICIENT FRONTIER CONCEPT:
-    Among our 1,000+ simulated portfolios, many are "dominated" — there exists
-    another portfolio with higher return AND lower volatility. The set of
-    non-dominated portfolios forms the efficient frontier.
+    Each risk profile optimizes a genuinely different objective so the profiles
+    produce meaningfully different portfolios:
 
-    Our approach approximates this frontier by Monte Carlo sampling rather than
-    solving the exact Markowitz quadratic program. The advantage: we can easily
-    add non-linear constraints (max drawdown, BTC bounds) that are difficult in
-    standard mean-variance optimization.
+    - Conservative : minimize annualized volatility, subject to max drawdown > -15%
+                     and annualized vol < 22%.  Picks the steadiest portfolio.
+    - Moderate     : maximize Sharpe ratio, subject to vol < 32% and max drawdown
+                     > -28%.  Guardrails prevent single-stock concentration.
+    - Aggressive   : maximize raw annualized return with no constraints.
+                     Concentration in high-return assets is expected and intentional.
+    - Custom       : maximize Sharpe subject to the user's own drawdown limit.
 
-    RISK PROFILE LOGIC:
-    - Conservative : maximize Sharpe, but only consider portfolios where the
-                     simulated max drawdown never exceeded 20%.
-    - Moderate     : maximize Sharpe with no drawdown filter.
-    - Aggressive   : maximize raw annualized return (ignore volatility).
-    - Custom       : user picks their own drawdown limit.
-
-    If the drawdown filter removes too many portfolios (< 10 remain), we
-    automatically relax it rather than returning a degenerate result.
+    If any filter reduces the candidate set below 10 portfolios it is relaxed
+    automatically rather than returning a degenerate result.
     """
     ann_ret, ann_vol, sharpe, max_dd = metrics[:, 0], metrics[:, 1], metrics[:, 2], metrics[:, 3]
+
     if risk_profile == "Conservative":
-        mask = max_dd > -0.20
+        mask  = (max_dd > -0.15) & (ann_vol < 0.22)
+        score = -ann_vol                    # minimize volatility
+    elif risk_profile == "Moderate":
+        mask  = (ann_vol < 0.32) & (max_dd > -0.28)
+        score = sharpe                      # maximize Sharpe within guardrails
+    elif risk_profile == "Aggressive":
+        mask  = np.ones(len(sharpe), dtype=bool)
+        score = ann_ret                     # maximize raw return, no constraints
     elif risk_profile == "Custom":
-        mask = max_dd > max_dd_custom
+        mask  = max_dd > max_dd_custom
+        score = sharpe
     else:
-        mask = np.ones(len(sharpe), dtype=bool)
+        mask  = np.ones(len(sharpe), dtype=bool)
+        score = sharpe
 
     if mask.sum() < 10:
         mask = np.ones(len(sharpe), dtype=bool)
-    
-    score = np.where(mask, ann_ret if risk_profile == "Aggressive" else sharpe, -np.inf)
+
+    score = np.where(mask, score, -np.inf)
     best_idx = int(np.argmax(score))
 
     return {
@@ -594,10 +598,10 @@ def _mode1(investment, risk_profile, n_portfolios, btc_min, btc_max, rf, max_dd_
 
     col_py, col_cpp = st.columns(2)
     run_py = col_py.button(
-        "▶  Run — Python  (~40s)", key="m1_run_py", use_container_width=True,
+        "Run — Python  (~10-20s)", key="m1_run_py", use_container_width=True,
     )
     run_cpp = col_cpp.button(
-        "⚡  Run — C++  (~1–2s)", key="m1_run_cpp", use_container_width=True,
+        "Run — C++  (~1-2s)", key="m1_run_cpp", use_container_width=True,
         disabled=not _CPP,
         help="" if _CPP else "Compile monte_carlo.cpp first — see app/setup.py",
     )
@@ -730,10 +734,10 @@ def _mode2(investment, risk_profile, n_portfolios, btc_min, btc_max, rf, max_dd_
 
     col_py, col_cpp = st.columns(2)
     run_py = col_py.button(
-        "▶  Run — Python  (~40s)", key="m2_run_py", use_container_width=True,
+        "Run — Python  (~10-20s)", key="m2_run_py", use_container_width=True,
     )
     run_cpp = col_cpp.button(
-        "⚡  Run — C++  (~1–2s)", key="m2_run_cpp", use_container_width=True,
+        "Run — C++  (~1–2s)", key="m2_run_cpp", use_container_width=True,
         disabled=not _CPP,
         help="" if _CPP else "Compile monte_carlo.cpp first — see app/setup.py",
     )
@@ -866,7 +870,7 @@ def show_portfolio_simulator():
     st.markdown("### Optimal Bitcoin allocation via Monte Carlo simulation and historical forecasting")
 
     if _CPP:
-        st.success("⚡ C++ Monte Carlo engine loaded (Pybind11) — fast mode active")
+        st.success("C++ Monte Carlo engine loaded (Pybind11) — fast mode active")
     else:
         st.warning(
             "C++ engine not compiled - running in Python/NumPy mode. "
@@ -878,10 +882,13 @@ def show_portfolio_simulator():
     st.sidebar.markdown("---")
     st.sidebar.subheader("Simulation Parameters")
 
-    investment = float(st.sidebar.number_input(
-        "Investment Amount ($)", min_value=1_000, max_value=10_000_000,
-        value=100_000, step=1_000, format="%d", key="sim_investment",
-    ))
+    if mode == "Auto-Allocate":
+        investment = float(st.sidebar.number_input(
+            "Investment Amount ($)", min_value=1_000, max_value=10_000_000,
+            value=100_000, step=1_000, format="%d", key="sim_investment",
+        ))
+    else:
+        investment = 100_000.0  # Mode 2 derives total from actual holdings entered below
 
     risk_profile = st.sidebar.radio(
         "Risk Profile", ["Conservative", "Moderate", "Aggressive", "Custom"],
