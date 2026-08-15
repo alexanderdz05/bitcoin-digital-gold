@@ -124,7 +124,7 @@ cd "/{Parent Directory}/Deutsche Bank Intern Project/app"
 python setup.py build_ext --inplace
 ```
 
-This produces `monte_carlo.cpython-313-darwin.so` in the `app/` folder. The app falls back to Python-only mode if the `.so` is not present.
+This produces a platform-specific shared library (e.g. `monte_carlo.cpython-313-darwin.so` on macOS, `monte_carlo.cpython-313-linux-gnu.so` on Linux) in the `app/` folder. The app falls back to Python-only mode if the extension is not present — no C++ required to run the app.
 
 ### Run the app
 

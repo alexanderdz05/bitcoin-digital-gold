@@ -1,1 +1,8 @@
-Requirements:
+streamlit
+pandas
+numpy
+plotly
+yfinance
+pandas-datareader
+pybind11
+setuptools

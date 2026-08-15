@@ -14,7 +14,7 @@ from utils import (
 def show_test3():
     # Title and Header
     st.title("Test 3 — Risk Asset Behavior")
-    st.markdown("### Does Bitcoin behave like a high-beta risk asset?")
+    st.markdown("### Does Bitcoin behave like a risk asset?")
 
     # Risk on vs Risk off Analysis
     prices, returns = load_asset_prices()

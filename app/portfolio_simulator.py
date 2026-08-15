@@ -860,7 +860,7 @@ def _thesis_callout(optimal, weights, metrics, btc_idx):
             f"**Project Thesis:** The optimal allocation includes **{optimal['btc_alloc']:.1%} BTC**, "
             f"improving the Sharpe ratio by **{delta:+.3f}** over a 0% BTC baseline. "
             f"This confirms our finding that Bitcoin's value comes from diversification "
-            f"and asymetric return potential - not inflation protection."
+            f"and asymmetric return potential - not inflation protection."
         )
 
 # Section 13 - Main Entry Point

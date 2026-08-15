@@ -52,10 +52,11 @@ def show_overview():
         "BTC Price",
         f"${latest_price:,.2f}"
     )
+    sign = "-" if price_change < 0 else "+"
     col_change.metric(
         f"{range_option} Change",
         f"{price_change_pct:.2%}",
-        f"${price_change:,.2f}"
+        f"{sign}${abs(price_change):,.2f}",
     )
     col_high.metric(
         "Range High",
